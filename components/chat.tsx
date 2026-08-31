@@ -11,34 +11,16 @@ import {
   type KeyboardEvent,
 } from 'react';
 
-type HarnessId =
-  | 'claude-code'
-  | 'cline'
-  | 'codex'
-  | 'cursor'
-  | 'deepagents'
-  | 'fx'
-  | 'grok-build'
-  | 'opencode'
-  | 'pi';
+type HarnessId = 'pi' | 'cline';
 
 type HarnessOption = {
   id: HarnessId;
   name: string;
-  runtime: 'bridge' | 'host';
-  available: boolean;
 };
 
 const harnesses: HarnessOption[] = [
-  { id: 'claude-code', name: 'Claude Code', runtime: 'bridge', available: false },
-  { id: 'cline', name: 'Cline', runtime: 'host', available: true },
-  { id: 'codex', name: 'Codex', runtime: 'bridge', available: false },
-  { id: 'cursor', name: 'Cursor', runtime: 'bridge', available: false },
-  { id: 'deepagents', name: 'Deep Agents', runtime: 'bridge', available: false },
-  { id: 'fx', name: 'fx', runtime: 'bridge', available: false },
-  { id: 'grok-build', name: 'Grok Build', runtime: 'bridge', available: false },
-  { id: 'opencode', name: 'OpenCode', runtime: 'bridge', available: false },
-  { id: 'pi', name: 'Pi', runtime: 'host', available: true },
+  { id: 'pi', name: 'Pi' },
+  { id: 'cline', name: 'Cline' },
 ];
 
 const suggestions = [
@@ -119,15 +101,16 @@ function Message({ message }: { message: UIMessage }) {
 
 function ChatSession({
   sourcePath,
+  sessionId,
   harness,
   onHarnessChange,
 }: {
   sourcePath: string;
+  sessionId: string;
   harness: HarnessId;
   onHarnessChange: (harness: HarnessId) => void;
 }) {
   const option = harnesses.find(item => item.id === harness) ?? harnesses[0];
-  const available = option.available;
   const chatId = `luna-${harness}-harness-local`;
   const storageKey = `dynamic-agent-runtime:messages:${harness}:v2`;
   const transport = useMemo(
@@ -274,7 +257,7 @@ function ChatSession({
                 aria-pressed={option.id === harness}
               >
                 <strong>{option.name}</strong>
-                <span>{option.available ? `${option.runtime} · ready` : `${option.runtime} · gated`}</span>
+                <span>BYOK · custom endpoint</span>
               </button>
             ))}
           </div>
@@ -299,7 +282,7 @@ function ChatSession({
           <header className="chat-header">
             <div className="live-status" aria-live="polite">
               <span className={`status-dot ${busy ? 'status-dot-busy' : ''}`} />
-              {available ? statusText : '需要网络 sandbox'}
+              {statusText}
             </div>
             <button
               className="reset-button"
@@ -317,21 +300,11 @@ function ChatSession({
                 <div className="empty-kicker">READY WHEN YOU ARE</div>
                 <h2>问一个值得<br />认真回答的问题。</h2>
                 <p>
-                  {available ? (
-                    <>
-                      流式回复。会话由 {option.name} Harness 保持；内置本体主动 /
-                      被动进化 playbook。
-                    </>
-                  ) : (
-                    <>
-                      {option.name} adapter 已安装。当前 Mac mini 只提供 CPA +
-                      just-bash；该 bridge runtime 需受支持的 network sandbox
-                      和独立凭据，因此保持安全关闭。
-                    </>
-                  )}
+                  流式回复。会话由 {option.name} Harness 保持；仅启用已验证支持
+                  BYOK、自定义 endpoint 和 CPA 的 runtime。
                 </p>
                 <div className="suggestions">
-                  {available && suggestions.map((suggestion, index) => (
+                  {suggestions.map((suggestion, index) => (
                     <button
                       type="button"
                       key={suggestion}
@@ -374,9 +347,9 @@ function ChatSession({
                 value={input}
                 onChange={event => setInput(event.target.value)}
                 onKeyDown={onKeyDown}
-                placeholder={available ? '输入问题…' : '当前部署未启用此 runtime'}
+                placeholder="输入问题…"
                 rows={1}
-                disabled={busy || !available}
+                disabled={busy}
               />
               {busy ? (
                 <button
@@ -391,7 +364,7 @@ function ChatSession({
                 <button
                   className="send-button"
                   type="submit"
-                  disabled={!available || !input.trim()}
+                  disabled={!input.trim()}
                   aria-label="发送消息"
                 >
                   <ArrowIcon />
@@ -399,9 +372,7 @@ function ChatSession({
               )}
             </form>
             <div className="composer-note">
-              {available
-                ? 'Enter 发送 · Shift + Enter 换行 · sandbox 内工具可用'
-                : 'adapter 已安装 · runtime 安全门禁未满足'}
+              Enter 发送 · Shift + Enter 换行 · CPA BYOK · sandbox 内工具可用
             </div>
           </div>
         </section>
@@ -410,19 +381,26 @@ function ChatSession({
       <footer className="provenance">
         <span>github.com/liush2yuxjtu/dynamic-agent-runtime</span>
         <span>{sourcePath}</span>
-        <span>Pi session 01a0563f-70ee-72e6-a531-8fec6cd65f7f</span>
+        <span>Pi session {sessionId}</span>
       </footer>
     </main>
   );
 }
 
-export function Chat({ sourcePath }: { sourcePath: string }) {
+export function Chat({
+  sourcePath,
+  sessionId,
+}: {
+  sourcePath: string;
+  sessionId: string;
+}) {
   const [harness, setHarness] = useState<HarnessId>('pi');
 
   return (
     <ChatSession
       key={harness}
       sourcePath={sourcePath}
+      sessionId={sessionId}
       harness={harness}
       onHarnessChange={setHarness}
     />

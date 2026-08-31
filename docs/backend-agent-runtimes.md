@@ -24,6 +24,10 @@
 
 另有通用 [`@ai-sdk/harness-acp`](https://ai-sdk.dev/providers/ai-sdk-harnesses/acp) 1.0.32，可连接能够在 Harness sandbox 内安装、启动并通过所需暴露端口通信的 ACP v1 runtime。官方文档给出完整 profile 的实现包括 Claude Code、Codex、Cursor 和 Grok Build。
 
+## 产品筛选结果
+
+当前产品只使用 Pi 与 Cline。两者已在 Mac mini 上对 CPA 完成 BYOK、自定义 endpoint、`gpt-5.6-luna`、最大推理和 fast header 的多轮 smoke test。其他 adapter 即使存在官方 package，也不会仅凭理论配置能力进入产品；必须先有 direct CPA 证据和符合部署边界的 sandbox 实证。
+
 ## 运行架构差异
 
 ### Host process
@@ -79,19 +83,12 @@ Claude Code、Codex、OpenCode、Deep Agents，以及 Cursor、fx、Grok Build �
 
 更广泛的原生 SDK、Hosted API 和通用框架见 [Coding Agent SDK 全景](coding-agent-sdk-landscape.md)。
 
-## 对当前 Mac mini + CPA 架构的推荐顺序
+## 对当前 Mac mini + CPA 架构的选择
 
-1. **Pi**：依赖少、启动快、CPA 已实测；适合默认通用路径。
-2. **Cline**：多 provider、structured output、tool policy；CPA Responses 已实测。
-3. **Codex**：CPA Responses 契合度高；前提是先实现 Mac mini network sandbox provider。
-4. **OpenCode**：多模型、skills、subagents；同样需要 bridge sandbox。
-5. **Deep Agents**：最适合本体、专家、反馈驱动迭代；集成和 Python runtime 成本更高。
-6. Claude Code。
-7. Cursor。
-8. Grok Build。
-9. fx。
+1. **Pi**：依赖少、启动快，BYOK + endpoint + CPA 已实测。
+2. **Cline**：支持 provider、endpoint、header 和 reasoning 配置，CPA Responses 已实测。
 
-此排序针对当前项目约束，不代表通用产品排名。
+其余 adapter 不进入产品运行集。catalog 用于理解生态，不等于部署候选。
 
 ## 安全与运维边界
 

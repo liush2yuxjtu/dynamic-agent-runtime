@@ -182,7 +182,7 @@ textarea:focus-visible {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 18px;
 }
@@ -679,9 +679,9 @@ textarea:focus-visible {
   }
 
   .harness-switch {
-    width: 460px;
+    width: 220px;
     max-width: 70vw;
-    grid-template-columns: repeat(9, 92px);
+    grid-template-columns: repeat(2, 104px);
     margin: 0;
     overflow-x: auto;
   }
