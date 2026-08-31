@@ -50,11 +50,13 @@ Sandbox、仓库、Shell、文件
 
 ## 本项目的可切换 Harness
 
-聊天页支持点击切换 Pi 与 Cline。两者都由 Vercel 官方 adapter 提供，运行在 Mac mini host process，并把文件与 Shell 操作限制到独立 `just-bash` sandbox。每个 Harness 使用独立 chat id、浏览器历史和原生 session，切换不会把一个 runtime 的不透明 state 交给另一个 runtime。
+聊天页可点击切换全部 9 个官方 adapter。仓库固定安装对应 9 个 package，并额外安装通用 `@ai-sdk/harness-acp` 入口。每个选项使用独立 chat id 和浏览器历史；切换不会把一个 runtime 的不透明 state 交给另一个 runtime。
 
-两条路径都使用同一个 CPA `gpt-5.6-luna`，`effort=max`，并发送 `X-Claudex-Speed: fast`。Pi 通过临时 `models.json` 连接 CPA；Cline 通过官方 OpenAI Responses provider 配置 `providerId: openai-native`、`baseUrl`、`apiKey` 和 `headers` 连接 CPA endpoint。凭据只在 server process 解析。
+当前 Mac mini 部署只启用 Pi 与 Cline。两者是 host-process runtime，可把文件与 Shell 操作限制到 `just-bash` sandbox，并直接使用同一个 CPA `gpt-5.6-luna`、`effort=max` 和 `X-Claudex-Speed: fast`。Pi 通过临时 `models.json` 连接 CPA；Cline 通过官方 OpenAI Responses provider 配置 `providerId: openai-native`、`baseUrl`、`apiKey` 和 `headers`。凭据只在 server process 解析。
 
-当前 Cline adapter 会引入较大的多 provider 依赖树。发布前必须保留 lockfile、运行 `npm audit`，并把未修复 advisory 作为已知风险处理；不能为了消除报告而执行破坏性 `npm audit fix --force`。
+其余 7 个 adapter 已安装并可点击查看，但不会伪装成可运行：Claude Code、Codex、Deep Agents、OpenCode 和三个 ACP runtime（Cursor、fx、Grok Build）都要求能暴露端口的 network sandbox；部分还要求 runtime 自有账号凭据。当前唯一官方支持的 bridge sandbox 是 Vercel Sandbox，而本项目禁止索取 `VERCEL_OIDC_TOKEN`、禁止改走 AI Gateway，也不公开 macmini CPA。因此这些选项保持 `gated`，API 对绕过 UI 的请求返回 HTTP 422。未来只有在官方、可验证的 network sandbox 和对应 direct CPA 路由同时满足后才能启用。
+
+当前 Cline adapter 和安装完整 catalog 会引入较大的多 provider 依赖树。发布前必须保留 lockfile、运行 `npm audit`，并把未修复 advisory 作为已知风险处理；不能为了消除报告而执行破坏性 `npm audit fix --force`。
 
 ## 当前 adapters
 
@@ -80,7 +82,7 @@ Sandbox、仓库、Shell、文件
 - Goose，`@ai-sdk/harness-goose`
 - Mastra，`@ai-sdk/harness-mastra`
 
-所有当前 adapter 都支持 host custom tools 和 custom skills。
+所有当前 adapter 都支持 host custom tools 和 custom skills。`@ai-sdk/harness-acp` 是通用协议入口，不是第十个具体 runtime。
 
 ## 安装
 

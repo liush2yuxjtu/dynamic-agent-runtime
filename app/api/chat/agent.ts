@@ -14,10 +14,23 @@ const execFileAsync = promisify(execFile);
 const CPA_MODEL = 'gpt-5.6-luna';
 const DEFAULT_CPA_BASE_URL = 'http://127.0.0.1:8318/v1';
 
-export const HARNESS_IDS = ['pi', 'cline'] as const;
+export const HARNESS_IDS = [
+  'claude-code',
+  'cline',
+  'codex',
+  'cursor',
+  'deepagents',
+  'fx',
+  'grok-build',
+  'opencode',
+  'pi',
+] as const;
 export type HarnessId = (typeof HARNESS_IDS)[number];
 
-const agentPromises = new Map<HarnessId, Promise<HarnessAgent>>();
+export const ACTIVE_HARNESS_IDS = ['pi', 'cline'] as const satisfies readonly HarnessId[];
+export type ActiveHarnessId = (typeof ACTIVE_HARNESS_IDS)[number];
+
+const agentPromises = new Map<ActiveHarnessId, Promise<HarnessAgent>>();
 
 const ontologyEvolutionSkill = {
   name: 'ontology-evolution',
@@ -125,7 +138,7 @@ async function preparePiAgentDir(baseUrl: string) {
   return agentDir;
 }
 
-async function createAgent(harnessId: HarnessId) {
+async function createAgent(harnessId: ActiveHarnessId) {
   const cpa = await resolveCpa();
   const sandbox = createJustBashSandbox({ cwd: '/workspace' });
   const instructions = [
@@ -178,7 +191,11 @@ export function isHarnessId(value: unknown): value is HarnessId {
   return HARNESS_IDS.includes(value as HarnessId);
 }
 
-export function getAgent(harnessId: HarnessId) {
+export function isActiveHarnessId(value: HarnessId): value is ActiveHarnessId {
+  return ACTIVE_HARNESS_IDS.includes(value as ActiveHarnessId);
+}
+
+export function getAgent(harnessId: ActiveHarnessId) {
   let promise = agentPromises.get(harnessId);
   if (!promise) {
     promise = createAgent(harnessId).catch(error => {

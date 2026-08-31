@@ -11,7 +11,7 @@ App 使用 `HarnessAgent` + Pi adapter + `just-bash` 隔离 sandbox，通过 CPA
 - Session：Harness 原生多轮状态；浏览器历史保存在 `localStorage`
 - Credential：只在服务端解析，不写入 Git 或浏览器
 - Source：公开 GitHub 仓库
-- Harness：页面点击切换 Pi / Cline；两者保持独立原生 session
+- Harness：页面可点击切换全部 9 个官方 adapter；Pi / Cline 可运行，其余 7 个明确显示安全门禁
 - Evolution：主动 schema 更新与被动 feedback 迭代 playbook
 - Runtime：仅部署在 `macmini`
 - Access：通过 Tailscale Serve 从本机私密访问
@@ -36,7 +36,7 @@ https://macmini.tail6a877d.ts.net:3012
 
 - [Coding Agent SDK 全景](docs/coding-agent-sdk-landscape.md)
 - [后端 Agent Runtime 全量清单](docs/backend-agent-runtimes.md)
-- [Vercel AI SDK HarnessAgent 指南](docs/vercel-harness-agent.md)
+- [Vercel AI SDK HarnessAgent 指南（9 adapters + ACP）](docs/vercel-harness-agent.md)
 - [本体与专家进化](docs/ontology-evolution.md)
 - [Mac mini 部署与恢复](docs/deployment.md)
 

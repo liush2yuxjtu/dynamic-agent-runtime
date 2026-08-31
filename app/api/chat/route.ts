@@ -8,7 +8,12 @@ import {
   type UIMessage,
 } from 'ai';
 import { createHash } from 'node:crypto';
-import { getAgent, isHarnessId, type HarnessId } from './agent';
+import {
+  getAgent,
+  isActiveHarnessId,
+  isHarnessId,
+  type HarnessId,
+} from './agent';
 import {
   clearStoredSession,
   destroyFailedSession,
@@ -84,6 +89,16 @@ export async function POST(request: Request) {
   }
 
   const harnessId = body.harness;
+  if (!isActiveHarnessId(harnessId)) {
+    return Response.json(
+      {
+        error:
+          'Adapter is installed but unavailable on the Mac mini CPA runtime. Bridge-backed adapters require a supported network sandbox and runtime-specific credentials.',
+      },
+      { status: 422 },
+    );
+  }
+
   const chatId = ownedChatId(request, `${harnessId}:${body.id}`);
   if (!chatId) {
     return Response.json({ error: 'Tailnet identity required.' }, { status: 401 });
