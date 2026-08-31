@@ -142,7 +142,7 @@ async function createAgent(harnessId: HarnessId) {
       model: CPA_MODEL,
       harness: createCline({
         auth: {},
-        providerId: 'openai-compatible',
+        providerId: 'openai-native',
         apiKey: cpa.apiKey,
         baseUrl: cpa.baseUrl,
         headers: { 'X-Claudex-Speed': 'fast' },
