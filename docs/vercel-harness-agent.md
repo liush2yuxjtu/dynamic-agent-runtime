@@ -83,7 +83,7 @@ pnpm add \
   @ai-sdk/sandbox-vercel
 ```
 
-Bridge-backed runtime 需要可暴露端口的真实网络 sandbox。Claude Code、Codex、Deep Agents、OpenCode 属于这类。
+Bridge-backed runtime 需要 sandbox 网络访问和至少一个暴露的 TCP 端口。Claude Code、Codex、Deep Agents、OpenCode，以及通过 ACP 运行的 Cursor、fx、Grok Build 都属于这类。
 
 Pi、Cline 这类 host process runtime 不在 sandbox 内安装 bridge。Pi 还可使用 `@ai-sdk/sandbox-just-bash`，因为它不需要 sandbox 端口。
 
@@ -346,27 +346,29 @@ const agent = new HarnessAgent({
 - `onSession`：每次获得 session 后执行，适合写入当前任务文件或轻量配置。
 
 ```ts
+const sandboxConfig = {
+  workDir: 'repo',
+  bootstrapHash: 'tools-v1',
+  onBootstrap: async ({ session, abortSignal }) => {
+    await session.run({
+      command:
+        'command -v rg >/dev/null || (apt-get update && apt-get install -y ripgrep)',
+      abortSignal,
+    });
+  },
+  onSession: async ({ session, sessionWorkDir, abortSignal }) => {
+    await session.writeTextFile({
+      path: `${sessionWorkDir}/TASK.md`,
+      content: 'Run the narrowest relevant tests.',
+      abortSignal,
+    });
+  },
+};
+
 const agent = new HarnessAgent({
   harness: claudeCode,
   sandbox,
-  sandboxConfig: {
-    workDir: 'repo',
-    bootstrapHash: 'tools-v1',
-    onBootstrap: async ({ session, abortSignal }) => {
-      await session.run({
-        command:
-          'command -v rg >/dev/null || (apt-get update && apt-get install -y ripgrep)',
-        abortSignal,
-      });
-    },
-    onSession: async ({ session, sessionWorkDir, abortSignal }) => {
-      await session.writeTextFile({
-        path: `${sessionWorkDir}/TASK.md`,
-        content: 'Run the narrowest relevant tests.',
-        abortSignal,
-      });
-    },
-  },
+  sandboxConfig,
 });
 ```
 

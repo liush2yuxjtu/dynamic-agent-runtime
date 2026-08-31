@@ -54,7 +54,7 @@
 
 | API | 维护者、状态 | 能力 | Skills 对应物 |
 | --- | --- | --- | --- |
-| [Claude Managed Agents](https://docs.anthropic.com/en/docs/claude-code/sdk) | Anthropic 官方；Public Beta | 托管 sandbox、sessions、skills、memory、webhooks、多 agent、定时部署 | Claude Agent Skills |
+| [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) | Anthropic 官方；Public Beta | 托管 sandbox、sessions、skills、memory、webhooks、多 agent、定时部署 | Claude Agent Skills |
 | [Google Jules API](https://developers.google.com/jules/api) | Google 官方；`v1alpha` | 异步修复、审查、计划批准、自动创建 PR | 未提供通用 `SKILL.md` 运行面 |
 | [Devin API v3](https://docs.devin.ai/api-reference/v3/usage-examples) | Cognition 官方 | sessions、playbooks、knowledge、schedules、MCP | Devin CLI 支持 Agent Skills；API 侧主要用 playbooks 和 knowledge |
 | [Cursor Cloud Agents API](https://cursor.com/docs/cloud-agent/api/endpoints) | Anysphere 官方；Public Beta | durable agents、runs、SSE、worker pools | repo skills 和 Cursor 配置 |
