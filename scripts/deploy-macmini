@@ -115,6 +115,17 @@ else
   rm -f "$PREVIOUS_PLIST"
 fi
 
+bootstrap_service() {
+  attempts=0
+  while ! launchctl bootstrap "$DOMAIN" "$PLIST"; do
+    attempts=$((attempts + 1))
+    if [ "$attempts" -ge 10 ]; then
+      return 1
+    fi
+    sleep 1
+  done
+}
+
 SWITCHED=0
 HEALTHY=0
 SERVE_ADDED=0
@@ -125,7 +136,7 @@ rollback() {
     launchctl bootout "$DOMAIN/$LABEL" >/dev/null 2>&1 || true
     if [ "$HAD_PREVIOUS_PLIST" -eq 1 ]; then
       cp "$PREVIOUS_PLIST" "$PLIST"
-      launchctl bootstrap "$DOMAIN" "$PLIST" >/dev/null 2>&1 || true
+      bootstrap_service >/dev/null 2>&1 || true
       launchctl kickstart -k "$DOMAIN/$LABEL" >/dev/null 2>&1 || true
     fi
   fi
@@ -142,7 +153,7 @@ if [ "$SERVICE_WAS_LOADED" -eq 1 ]; then
 fi
 cp "$NEW_PLIST" "$PLIST.tmp"
 mv "$PLIST.tmp" "$PLIST"
-launchctl bootstrap "$DOMAIN" "$PLIST"
+bootstrap_service
 launchctl enable "$DOMAIN/$LABEL"
 launchctl kickstart -k "$DOMAIN/$LABEL"
 
