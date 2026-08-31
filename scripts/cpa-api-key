@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+if [ -n "${CPA_API_KEY:-}" ]; then
+  printf '%s' "$CPA_API_KEY"
+elif [ -x "$HOME/.pi/agent/bin/cliproxy-api-key" ]; then
+  exec "$HOME/.pi/agent/bin/cliproxy-api-key"
+else
+  exec ssh -o BatchMode=yes -o ConnectTimeout=5 macmini '~/.pi/agent/bin/cliproxy-api-key'
+fi

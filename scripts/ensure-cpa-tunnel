@@ -1,0 +1,38 @@
+#!/bin/sh
+set -eu
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+
+listener_is_expected() {
+  pid="$(lsof -nP -t -iTCP:8318 -sTCP:LISTEN 2>/dev/null | head -1)"
+  [ -n "$pid" ] || return 1
+  command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+  case "$command_line" in
+    *ssh*"-L 127.0.0.1:8318:127.0.0.1:8317"*macmini*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+if nc -z 127.0.0.1 8318 >/dev/null 2>&1; then
+  if ! listener_is_expected; then
+    printf '%s\n' 'Refusing CPA access: port 8318 is not owned by the expected SSH tunnel.' >&2
+    exit 67
+  fi
+else
+  ssh -fN \
+    -o BatchMode=yes \
+    -o ConnectTimeout=5 \
+    -o ExitOnForwardFailure=yes \
+    -o ServerAliveInterval=30 \
+    -o ServerAliveCountMax=3 \
+    -L 127.0.0.1:8318:127.0.0.1:8317 \
+    macmini
+  listener_is_expected
+fi
+
+key="$($SCRIPT_DIR/cpa-api-key)"
+models="$(curl -fsS --max-time 10 --config - http://127.0.0.1:8318/v1/models <<EOF
+header = "Authorization: Bearer $key"
+EOF
+)"
+printf '%s' "$models" | python3 -c 'import json,sys; assert any(x.get("id") == "gpt-5.6-luna" for x in json.load(sys.stdin).get("data", []))'

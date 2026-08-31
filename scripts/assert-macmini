@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+
+if [ -x /opt/homebrew/bin/tailscale ]; then
+  TAILSCALE_BIN=/opt/homebrew/bin/tailscale
+elif [ -x /usr/local/bin/tailscale ]; then
+  TAILSCALE_BIN=/usr/local/bin/tailscale
+else
+  printf '%s\n' 'Refusing deployment: trusted Tailscale CLI is unavailable.' >&2
+  exit 64
+fi
+
+DNS_NAME="$($TAILSCALE_BIN status --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Self", {}).get("DNSName", "").rstrip("."))')"
+if [ "$DNS_NAME" != "macmini.tail6a877d.ts.net" ]; then
+  printf 'Refusing deployment on %s (%s). Only macmini.tail6a877d.ts.net is allowed.\n' "$(hostname)" "${DNS_NAME:-no-tailnet-identity}" >&2
+  exit 64
+fi

@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+URL="https://macmini.tail6a877d.ts.net:3012"
+
+# Viewer only. This MacBook must never host the production service.
+if ! curl -fsS --max-time 10 "$URL" | grep -q 'Luna Harness Chat'; then
+  printf '%s\n' 'macmini deployment is not reachable through the tailnet.' >&2
+  exit 1
+fi
+
+open "$URL"
