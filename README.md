@@ -2,6 +2,10 @@
 
 Coding Agent SDK、Agent Skills 与 Vercel AI SDK HarnessAgent 的可核验资料库。
 
+[![HarnessAgent 架构与能力概览](docs/images/harness-agent-architecture.png)](docs/vercel-harness-agent.md)
+
+架构图展示产品层、`HarnessAgent`、runtime adapters、sandbox 与代码执行环境之间的关系。点击图片阅读完整指南。
+
 ## 文档
 
 - [Coding Agent SDK 全景](docs/coding-agent-sdk-landscape.md)

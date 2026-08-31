@@ -8,6 +8,12 @@
 
 它不是模型 provider，也不是新的基础模型。
 
+## 架构信息图
+
+[![HarnessAgent 详细架构图：产品层通过统一 Agent API 调用 Claude Code、OpenAI Codex 或 Pi adapter，并在隔离 sandbox 中操作代码仓库](images/harness-agent-architecture.png)](images/harness-agent-architecture.png)
+
+图中汇总了 `HarnessAgent` 的调用链、核心能力、运行边界，以及它与 `ToolLoopAgent` 的区别。图片用于快速理解整体关系；adapter 的精确能力和限制以本文后续表格及官方文档为准。
+
 ## 架构
 
 ```text
