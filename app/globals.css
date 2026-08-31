@@ -178,6 +178,54 @@ textarea:focus-visible {
   background: linear-gradient(var(--acid), rgba(183, 244, 93, 0.08));
 }
 
+.harness-switch {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 18px;
+}
+
+.harness-switch button {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px 10px;
+  border: 1px solid var(--line-light);
+  color: rgba(240, 238, 230, 0.48);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.harness-switch button:hover:not(:disabled),
+.harness-switch .harness-active {
+  border-color: var(--acid);
+  color: var(--paper);
+  background: rgba(183, 244, 93, 0.08);
+}
+
+.harness-switch button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.harness-switch strong {
+  font-family: SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.harness-switch span {
+  overflow: hidden;
+  color: inherit;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .rail-meta {
   position: relative;
   z-index: 1;
@@ -628,10 +676,13 @@ textarea:focus-visible {
     align-self: center;
   }
 
+  .harness-switch {
+    width: 230px;
+    margin: 0;
+  }
+
   .rail-meta {
-    width: 250px;
-    padding: 0;
-    border: 0;
+    display: none;
   }
 
   .chat-panel {
@@ -665,7 +716,7 @@ textarea:focus-visible {
     gap: 12px;
   }
 
-  .rail-meta {
+  .harness-switch {
     width: 100%;
   }
 

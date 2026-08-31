@@ -8,7 +8,7 @@ import {
   type UIMessage,
 } from 'ai';
 import { createHash } from 'node:crypto';
-import { getAgent } from './agent';
+import { getAgent, isHarnessId, type HarnessId } from './agent';
 import {
   clearStoredSession,
   destroyFailedSession,
@@ -23,6 +23,7 @@ const CHAT_ID = /^[a-zA-Z0-9_-]{1,128}$/;
 
 type ChatBody = {
   id?: string;
+  harness?: HarnessId;
   messages?: UIMessage[];
 };
 
@@ -73,11 +74,17 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
 
-  if (!body.id || !CHAT_ID.test(body.id) || !Array.isArray(body.messages)) {
+  if (
+    !body.id ||
+    !CHAT_ID.test(body.id) ||
+    !isHarnessId(body.harness) ||
+    !Array.isArray(body.messages)
+  ) {
     return Response.json({ error: 'Invalid chat request.' }, { status: 400 });
   }
 
-  const chatId = ownedChatId(request, body.id);
+  const harnessId = body.harness;
+  const chatId = ownedChatId(request, `${harnessId}:${body.id}`);
   if (!chatId) {
     return Response.json({ error: 'Tailnet identity required.' }, { status: 401 });
   }
@@ -88,7 +95,7 @@ export async function POST(request: Request) {
   return createUIMessageStreamResponse({
     stream: createUIMessageStream({
       execute: async ({ writer }) => {
-        const agent = await getAgent();
+        const agent = await getAgent(harnessId);
         const { session, resumed } = await resumeOrCreateSession({
           agent,
           chatId,
@@ -131,12 +138,18 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const clientChatId = new URL(request.url).searchParams.get('id');
-  if (!clientChatId || !CHAT_ID.test(clientChatId)) {
+  const searchParams = new URL(request.url).searchParams;
+  const clientChatId = searchParams.get('id');
+  const harnessId = searchParams.get('harness');
+  if (
+    !clientChatId ||
+    !CHAT_ID.test(clientChatId) ||
+    !isHarnessId(harnessId)
+  ) {
     return Response.json({ error: 'Invalid chat id.' }, { status: 400 });
   }
 
-  const chatId = ownedChatId(request, clientChatId);
+  const chatId = ownedChatId(request, `${harnessId}:${clientChatId}`);
   if (!chatId) {
     return Response.json({ error: 'Tailnet identity required.' }, { status: 401 });
   }

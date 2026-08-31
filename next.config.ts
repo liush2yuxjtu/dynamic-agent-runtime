@@ -5,7 +5,11 @@ const nextConfig: NextConfig = {
     root: process.cwd(),
   },
   serverExternalPackages: [
+    '@ai-sdk/harness-cline',
     '@ai-sdk/harness-pi',
+    '@cline/agents',
+    '@cline/core',
+    '@cline/llms',
     '@ai-sdk/sandbox-just-bash',
   ],
 };

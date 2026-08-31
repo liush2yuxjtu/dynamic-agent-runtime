@@ -4,20 +4,24 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
 
-const CHAT_ID = 'luna-harness-local';
-const STORAGE_KEY = 'dynamic-agent-runtime:messages:v1';
-const transport = new DefaultChatTransport({ api: '/api/chat' });
+type HarnessId = 'pi' | 'cline';
+
+const harnesses: Array<{ id: HarnessId; name: string; note: string }> = [
+  { id: 'pi', name: 'Pi', note: '轻量 · host runtime' },
+  { id: 'cline', name: 'Cline', note: '工程化 · host runtime' },
+];
 
 const suggestions = [
   '用三句话解释 HarnessAgent 和普通模型调用的区别。',
-  '帮我设计一个一周可执行的深度工作计划。',
-  '计算 17 × 29，并说明最短心算路径。',
+  '主动更新：我会频繁更新数据表，请给出本体版本化、语义 diff、下游自动同步和回滚方案。',
+  '被动更新：请把下游 feedback 转成本体与专家的候选迭代，并设计自动晋级门槛。',
 ];
 
 type MessagePart = UIMessage['parts'][number];
@@ -90,7 +94,21 @@ function Message({ message }: { message: UIMessage }) {
   );
 }
 
-export function Chat({ sourcePath }: { sourcePath: string }) {
+function ChatSession({
+  sourcePath,
+  harness,
+  onHarnessChange,
+}: {
+  sourcePath: string;
+  harness: HarnessId;
+  onHarnessChange: (harness: HarnessId) => void;
+}) {
+  const chatId = `luna-${harness}-harness-local`;
+  const storageKey = `dynamic-agent-runtime:messages:${harness}:v2`;
+  const transport = useMemo(
+    () => new DefaultChatTransport({ api: '/api/chat', body: { harness } }),
+    [harness],
+  );
   const [input, setInput] = useState('');
   const [restored, setRestored] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -98,7 +116,7 @@ export function Chat({ sourcePath }: { sourcePath: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   const { messages, setMessages, sendMessage, status, error, stop, clearError } =
     useChat({
-      id: CHAT_ID,
+      id: chatId,
       transport,
       throttle: 40,
     });
@@ -115,26 +133,26 @@ export function Chat({ sourcePath }: { sourcePath: string }) {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = localStorage.getItem(storageKey);
       if (stored) {
         const parsed = JSON.parse(stored) as unknown;
         if (Array.isArray(parsed)) setMessages(parsed as UIMessage[]);
       }
     } catch {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(storageKey);
     } finally {
       setRestored(true);
     }
-  }, [setMessages]);
+  }, [setMessages, storageKey]);
 
   useEffect(() => {
     if (!restored || busy) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100)));
+      localStorage.setItem(storageKey, JSON.stringify(messages.slice(-100)));
     } catch {
       // Storage can be unavailable or full; live chat remains usable.
     }
-  }, [busy, messages, restored]);
+  }, [busy, messages, restored, storageKey]);
 
   useEffect(() => {
     const viewport = scrollRef.current;
@@ -166,12 +184,13 @@ export function Chat({ sourcePath }: { sourcePath: string }) {
     if (busy || resetting) return;
     setResetting(true);
     try {
-      const response = await fetch(`/api/chat?id=${CHAT_ID}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `/api/chat?id=${encodeURIComponent(chatId)}&harness=${harness}`,
+        { method: 'DELETE' },
+      );
       if (response.ok) {
         setMessages([]);
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(storageKey);
         clearError();
         setInput('');
       }
@@ -188,7 +207,7 @@ export function Chat({ sourcePath }: { sourcePath: string }) {
       <section className="console" aria-label="Luna Harness Chat">
         <aside className="rail">
           <div>
-            <div className="eyebrow">HARNESS / 01</div>
+            <div className="eyebrow">HARNESS / {harness === 'pi' ? '01' : '02'}</div>
             <h1>
               Luna
               <br />
@@ -208,13 +227,29 @@ export function Chat({ sourcePath }: { sourcePath: string }) {
             <i />
             <div>
               <span>02</span>
-              <strong>Pi runtime</strong>
+              <strong>{harness === 'pi' ? 'Pi runtime' : 'Cline runtime'}</strong>
             </div>
             <i />
             <div>
               <span>03</span>
               <strong>CPA / Luna</strong>
             </div>
+          </div>
+
+          <div className="harness-switch" aria-label="切换 Harness">
+            {harnesses.map(option => (
+              <button
+                type="button"
+                key={option.id}
+                className={option.id === harness ? 'harness-active' : ''}
+                onClick={() => onHarnessChange(option.id)}
+                disabled={busy}
+                aria-pressed={option.id === harness}
+              >
+                <strong>{option.name}</strong>
+                <span>{option.note}</span>
+              </button>
+            ))}
           </div>
 
           <div className="rail-meta">
@@ -254,7 +289,10 @@ export function Chat({ sourcePath }: { sourcePath: string }) {
               <div className="empty-state">
                 <div className="empty-kicker">READY WHEN YOU ARE</div>
                 <h2>问一个值得<br />认真回答的问题。</h2>
-                <p>流式回复。会话由 Harness 保持，不靠每轮重放历史。</p>
+                <p>
+                  流式回复。会话由 {harness === 'pi' ? 'Pi' : 'Cline'} Harness
+                  保持；内置本体主动 / 被动进化 playbook。
+                </p>
                 <div className="suggestions">
                   {suggestions.map((suggestion, index) => (
                     <button
@@ -278,13 +316,13 @@ export function Chat({ sourcePath }: { sourcePath: string }) {
             {status === 'submitted' && (
               <div className="thinking-line" role="status">
                 <span />
-                启动 Pi harness
+                启动 {harness === 'pi' ? 'Pi' : 'Cline'} harness
               </div>
             )}
 
             {error && (
               <div className="error-card" role="alert">
-                CPA 隧道或 Harness session 暂不可用。点“新对话”后重试。
+                CPA 或 {harness === 'pi' ? 'Pi' : 'Cline'} Harness session 暂不可用。点“新对话”后重试。
               </div>
             )}
           </div>
@@ -336,5 +374,18 @@ export function Chat({ sourcePath }: { sourcePath: string }) {
         <span>Pi session 01a0563f-70ee-72e6-a531-8fec6cd65f7f</span>
       </footer>
     </main>
+  );
+}
+
+export function Chat({ sourcePath }: { sourcePath: string }) {
+  const [harness, setHarness] = useState<HarnessId>('pi');
+
+  return (
+    <ChatSession
+      key={harness}
+      sourcePath={sourcePath}
+      harness={harness}
+      onHarnessChange={setHarness}
+    />
   );
 }
