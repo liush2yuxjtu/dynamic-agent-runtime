@@ -1,9 +1,12 @@
 #!/bin/sh
 set -eu
 
-TAILSCALE_BIN="${TAILSCALE_BIN:-$(command -v tailscale 2>/dev/null || true)}"
-if [ -z "$TAILSCALE_BIN" ]; then
-  printf '%s\n' 'Refusing deployment: Tailscale CLI is unavailable.' >&2
+if [ -x /opt/homebrew/bin/tailscale ]; then
+  TAILSCALE_BIN=/opt/homebrew/bin/tailscale
+elif [ -x /usr/local/bin/tailscale ]; then
+  TAILSCALE_BIN=/usr/local/bin/tailscale
+else
+  printf '%s\n' 'Refusing deployment: trusted Tailscale CLI is unavailable.' >&2
   exit 64
 fi
 

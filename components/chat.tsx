@@ -129,7 +129,11 @@ export function Chat({ sourcePath }: { sourcePath: string }) {
 
   useEffect(() => {
     if (!restored || busy) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100)));
+    } catch {
+      // Storage can be unavailable or full; live chat remains usable.
+    }
   }, [busy, messages, restored]);
 
   useEffect(() => {

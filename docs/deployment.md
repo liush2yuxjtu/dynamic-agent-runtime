@@ -23,18 +23,21 @@ MacBook browser
   -> macmini CPA 127.0.0.1:8317/v1
 ```
 
-Tailscale Serve is tailnet-private. Do not replace it with Funnel. This app reaches CPA through `127.0.0.1` and does not publish CPA through Tailscale Serve. Its API key is resolved by the existing mode-protected helper; no credential belongs in Git.
+Tailscale Serve is tailnet-private. Do not replace it with Funnel. The API derives each session-store key from Tailscale's authenticated `Tailscale-User-Login` header; direct requests are accepted only from loopback for operator smoke tests. This app reaches CPA through `127.0.0.1` and does not publish CPA through Tailscale Serve. Its API key is resolved by the existing mode-protected helper; no credential belongs in Git.
 
 ## Persistent service
 
-- Checkout: `~/Applications/dynamic-agent-runtime`
+- Source checkout: `~/Applications/dynamic-agent-runtime`
+- Immutable releases: `~/.local/share/dynamic-agent-runtime/releases/<commit>`
 - LaunchAgent label: `com.liushiyu.dynamic-agent-runtime`
 - LaunchAgent file: `~/Library/LaunchAgents/com.liushiyu.dynamic-agent-runtime.plist`
 - State and logs: `~/.local/state/dynamic-agent-runtime/`
 - Internal port: `4312`
 - Tailnet HTTPS port: `3012`
 
-`scripts/deploy-macmini` owns install, type-check, build, LaunchAgent replacement, health checks, and the non-destructive Tailscale Serve rule addition. It refuses hosts other than `macmini.tail6a877d.ts.net` and refuses deployment below 10 GiB free disk.
+`scripts/deploy-macmini` owns immutable release creation, install, type-check, build, atomic LaunchAgent replacement, rollback, health checks, and the non-destructive Tailscale Serve rule addition. It refuses hosts other than `macmini.tail6a877d.ts.net`, refuses deployment below 10 GiB free disk, and refuses an unmanaged listener or unrelated Tailscale handler on the reserved port.
+
+Port `3012` is exclusively reserved for this app. The deployment guard allows it only when unused or already mapped to this app's `127.0.0.1:4312` backend. Recovery may therefore remove the whole `3012` listener without affecting unrelated Serve routes.
 
 ## Operator workflow
 
@@ -54,12 +57,12 @@ Pi owns these steps; the user need not remember commands:
 launchctl print "gui/$(id -u)/com.liushiyu.dynamic-agent-runtime"
 tail -100 ~/.local/state/dynamic-agent-runtime/app.log
 
-# Remove only this app's Tailscale Serve listener
+# Remove this app's exclusively reserved Tailscale Serve listener
 # Verify exact current syntax first with: tailscale serve --help
-tailscale serve --https=3012 off
+tailscale serve --yes --https=3012 off
 
 # Stop only this app's LaunchAgent
 launchctl bootout "gui/$(id -u)/com.liushiyu.dynamic-agent-runtime"
 ```
 
-Never use `tailscale serve reset`; macmini already carries unrelated Serve routes. Never stop an unknown listener to reclaim ports.
+Never use `tailscale serve reset`; macmini already carries unrelated Serve routes. Never stop an unknown listener to reclaim ports. Failed releases automatically restore the previous LaunchAgent plist and immutable release.

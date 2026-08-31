@@ -2,15 +2,19 @@
 set -eu
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
-APP_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+SOURCE_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 LABEL="com.liushiyu.dynamic-agent-runtime"
 STATE_DIR="$HOME/.local/state/dynamic-agent-runtime"
+RELEASE_ROOT="$HOME/.local/share/dynamic-agent-runtime/releases"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+PREVIOUS_PLIST="$STATE_DIR/previous.plist"
 APP_PORT=4312
 TAILNET_PORT=3012
-TAILNET_URL="https://macmini.tail6a877d.ts.net:$TAILNET_PORT"
-TAILSCALE_BIN="${TAILSCALE_BIN:-$(command -v tailscale)}"
-NPM_BIN="$(command -v npm)"
+TAILNET_HOST="macmini.tail6a877d.ts.net"
+TAILNET_URL="https://$TAILNET_HOST:$TAILNET_PORT"
+TAILSCALE_BIN=/opt/homebrew/bin/tailscale
+NPM_BIN=/opt/homebrew/bin/npm
+DOMAIN="gui/$(id -u)"
 
 "$SCRIPT_DIR/assert-macmini"
 
@@ -20,19 +24,34 @@ if [ "$FREE_KIB" -lt 10485760 ]; then
   exit 65
 fi
 
-cd "$APP_DIR"
-npm ci
-npm run typecheck
-npm run build
+cd "$SOURCE_DIR"
+git diff --quiet
+git diff --cached --quiet
+COMMIT="$(git rev-parse HEAD)"
+RELEASE_DIR="$RELEASE_ROOT/$COMMIT"
+mkdir -p "$STATE_DIR" "$RELEASE_ROOT" "$HOME/Library/LaunchAgents"
 
-mkdir -p "$STATE_DIR" "$HOME/Library/LaunchAgents"
-python3 - "$PLIST" "$LABEL" "$APP_DIR" "$STATE_DIR/app.log" "$NPM_BIN" "$APP_PORT" <<'PY'
+if [ ! -f "$RELEASE_DIR/package.json" ]; then
+  TEMP_RELEASE="$RELEASE_DIR.tmp.$$"
+  rm -rf "$TEMP_RELEASE"
+  mkdir -p "$TEMP_RELEASE"
+  git archive HEAD | tar -x -C "$TEMP_RELEASE"
+  mv "$TEMP_RELEASE" "$RELEASE_DIR"
+fi
+
+cd "$RELEASE_DIR"
+"$NPM_BIN" ci
+"$NPM_BIN" run typecheck
+"$NPM_BIN" run build
+
+NEW_PLIST="$STATE_DIR/$LABEL.$COMMIT.plist"
+python3 - "$NEW_PLIST" "$LABEL" "$RELEASE_DIR" "$STATE_DIR/app.log" "$NPM_BIN" "$APP_PORT" <<'PY'
 import plistlib, sys
-plist, label, app_dir, log, npm, port = sys.argv[1:]
+plist, label, release_dir, log, npm, port = sys.argv[1:]
 data = {
     'Label': label,
     'ProgramArguments': [npm, 'start', '--', '--hostname', '127.0.0.1', '--port', port],
-    'WorkingDirectory': app_dir,
+    'WorkingDirectory': release_dir,
     'EnvironmentVariables': {
         'PATH': '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin',
         'CPA_BASE_URL': 'http://127.0.0.1:8317/v1',
@@ -47,27 +66,103 @@ data = {
 with open(plist, 'wb') as f:
     plistlib.dump(data, f, sort_keys=False)
 PY
-plutil -lint "$PLIST" >/dev/null
+plutil -lint "$NEW_PLIST" >/dev/null
 
-DOMAIN="gui/$(id -u)"
-launchctl bootout "$DOMAIN/$LABEL" >/dev/null 2>&1 || true
-if lsof -nP -iTCP:"$APP_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-  printf 'Refusing deployment: port %s is owned by another process.\n' "$APP_PORT" >&2
-  exit 66
+SERVE_JSON="$($TAILSCALE_BIN serve status --json 2>/dev/null || printf '{}')"
+if ! printf '%s' "$SERVE_JSON" | python3 -c '
+import json, sys
+port, host, expected = sys.argv[1:]
+data = json.load(sys.stdin)
+tcp = data.get("TCP", {}).get(port)
+web = data.get("Web", {}).get(f"{host}:{port}")
+if tcp is None and web is None:
+    raise SystemExit(0)
+proxy = ((web or {}).get("Handlers", {}).get("/") or {}).get("Proxy")
+if not ((tcp or {}).get("HTTPS") is True and proxy == expected):
+    raise SystemExit(1)
+' "$TAILNET_PORT" "$TAILNET_HOST" "http://127.0.0.1:$APP_PORT"; then
+  printf 'Refusing deployment: Tailscale Serve port %s belongs to another handler.\n' "$TAILNET_PORT" >&2
+  exit 67
 fi
+SERVE_WAS_PRESENT=0
+printf '%s' "$SERVE_JSON" | python3 -c 'import json,sys; raise SystemExit(0 if sys.argv[1] in json.load(sys.stdin).get("TCP", {}) else 1)' "$TAILNET_PORT" && SERVE_WAS_PRESENT=1 || true
+
+SERVICE_WAS_LOADED=0
+launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1 && SERVICE_WAS_LOADED=1 || true
+LISTENER_PIDS="$(lsof -nP -t -iTCP:"$APP_PORT" -sTCP:LISTEN 2>/dev/null || true)"
+if [ -n "$LISTENER_PIDS" ]; then
+  if [ "$SERVICE_WAS_LOADED" -ne 1 ]; then
+    printf 'Refusing deployment: port %s is owned by an unmanaged process.\n' "$APP_PORT" >&2
+    exit 68
+  fi
+  for pid in $LISTENER_PIDS; do
+    cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+    case "$cwd" in
+      "$RELEASE_ROOT"/*) ;;
+      *)
+        printf 'Refusing deployment: port %s listener %s is outside managed releases.\n' "$APP_PORT" "$pid" >&2
+        exit 68
+        ;;
+    esac
+  done
+fi
+
+HAD_PREVIOUS_PLIST=0
+if [ -f "$PLIST" ]; then
+  cp "$PLIST" "$PREVIOUS_PLIST"
+  HAD_PREVIOUS_PLIST=1
+else
+  rm -f "$PREVIOUS_PLIST"
+fi
+
+SWITCHED=0
+HEALTHY=0
+SERVE_ADDED=0
+rollback() {
+  code=$?
+  trap - EXIT
+  if [ "$SWITCHED" -eq 1 ] && [ "$HEALTHY" -ne 1 ]; then
+    launchctl bootout "$DOMAIN/$LABEL" >/dev/null 2>&1 || true
+    if [ "$HAD_PREVIOUS_PLIST" -eq 1 ]; then
+      cp "$PREVIOUS_PLIST" "$PLIST"
+      launchctl bootstrap "$DOMAIN" "$PLIST" >/dev/null 2>&1 || true
+      launchctl kickstart -k "$DOMAIN/$LABEL" >/dev/null 2>&1 || true
+    fi
+  fi
+  if [ "$SERVE_ADDED" -eq 1 ]; then
+    "$TAILSCALE_BIN" serve --yes --https="$TAILNET_PORT" off >/dev/null 2>&1 || true
+  fi
+  exit "$code"
+}
+trap rollback EXIT HUP INT TERM
+
+SWITCHED=1
+if [ "$SERVICE_WAS_LOADED" -eq 1 ]; then
+  launchctl bootout "$DOMAIN/$LABEL"
+fi
+cp "$NEW_PLIST" "$PLIST.tmp"
+mv "$PLIST.tmp" "$PLIST"
 launchctl bootstrap "$DOMAIN" "$PLIST"
 launchctl enable "$DOMAIN/$LABEL"
 launchctl kickstart -k "$DOMAIN/$LABEL"
 
 for _ in $(seq 1 90); do
-  if curl -fsS "http://127.0.0.1:$APP_PORT" | grep -q 'Luna Harness Chat'; then
+  if curl -fsS --max-time 3 "http://127.0.0.1:$APP_PORT" | grep -q 'Luna Harness Chat'; then
     break
   fi
   sleep 1
 done
-curl -fsS "http://127.0.0.1:$APP_PORT" | grep -q 'Luna Harness Chat'
+curl -fsS --max-time 10 "http://127.0.0.1:$APP_PORT" | grep -q 'Luna Harness Chat'
+APP_BASE_URL="http://127.0.0.1:$APP_PORT" "$NPM_BIN" run smoke
 
 "$TAILSCALE_BIN" serve --bg --yes --https="$TAILNET_PORT" "http://127.0.0.1:$APP_PORT"
-curl -fsS "$TAILNET_URL" | grep -q 'Luna Harness Chat'
+if [ "$SERVE_WAS_PRESENT" -eq 0 ]; then
+  SERVE_ADDED=1
+fi
+curl -fsS --max-time 15 "$TAILNET_URL" | grep -q 'Luna Harness Chat'
 
+HEALTHY=1
+SERVE_ADDED=0
+printf '%s\n' "$RELEASE_DIR" >"$STATE_DIR/current-release"
+trap - EXIT HUP INT TERM
 printf 'Deployed: %s\n' "$TAILNET_URL"

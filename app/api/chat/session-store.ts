@@ -63,8 +63,8 @@ export async function destroyFailedSession({
 }) {
   try {
     await session.destroy();
-    store.sessions.delete(chatId);
   } finally {
+    store.sessions.delete(chatId);
     release(chatId);
   }
 }
@@ -75,8 +75,8 @@ export async function clearStoredSession({ chatId }: { chatId: string }) {
 
   try {
     if (session) await session.destroy();
-    store.sessions.delete(chatId);
   } finally {
+    store.sessions.delete(chatId);
     release(chatId);
   }
 }

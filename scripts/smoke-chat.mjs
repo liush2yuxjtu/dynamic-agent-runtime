@@ -1,4 +1,8 @@
-const baseUrl = process.env.APP_BASE_URL ?? 'http://127.0.0.1:3010';
+const baseUrl = process.env.APP_BASE_URL;
+if (!baseUrl) {
+  throw new Error('APP_BASE_URL is required.');
+}
+
 const chatId = `smoke-${Date.now()}`;
 
 function readText(stream) {
@@ -25,48 +29,63 @@ async function send(messages) {
   return readText(stream);
 }
 
-const firstUser = {
-  id: 'smoke-user-1',
-  role: 'user',
-  parts: [
-    {
-      type: 'text',
-      text: 'Remember code word ORBIT-731. Reply with exactly STORED',
-    },
-  ],
-};
-const firstText = await send([firstUser]);
-if (firstText.trim() !== 'STORED') {
-  throw new Error('First HarnessAgent turn failed.');
-}
-
-const secondText = await send([
-  firstUser,
-  {
-    id: 'smoke-assistant-1',
-    role: 'assistant',
-    parts: [{ type: 'text', text: firstText }],
-  },
-  {
-    id: 'smoke-user-2',
+let failure;
+try {
+  const firstUser = {
+    id: 'smoke-user-1',
     role: 'user',
     parts: [
       {
         type: 'text',
-        text: 'What code word did I ask you to remember? Reply with exactly that code word.',
+        text: 'Remember code word ORBIT-731. Reply with exactly STORED',
       },
     ],
-  },
-]);
-if (secondText.trim() !== 'ORBIT-731') {
-  throw new Error(
-    `HarnessAgent session did not preserve multi-turn context: ${JSON.stringify(secondText)}`,
-  );
+  };
+  const firstText = await send([firstUser]);
+  if (firstText.trim() !== 'STORED') {
+    throw new Error('First HarnessAgent turn failed.');
+  }
+
+  const secondText = await send([
+    firstUser,
+    {
+      id: 'smoke-assistant-1',
+      role: 'assistant',
+      parts: [{ type: 'text', text: firstText }],
+    },
+    {
+      id: 'smoke-user-2',
+      role: 'user',
+      parts: [
+        {
+          type: 'text',
+          text: 'What code word did I ask you to remember? Reply with exactly that code word.',
+        },
+      ],
+    },
+  ]);
+  if (secondText.trim() !== 'ORBIT-731') {
+    throw new Error(
+      `HarnessAgent session did not preserve multi-turn context: ${JSON.stringify(secondText)}`,
+    );
+  }
+} catch (error) {
+  failure = error;
+} finally {
+  try {
+    const cleanup = await fetch(`${baseUrl}/api/chat?id=${chatId}`, {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!cleanup.ok) {
+      throw new Error(`Smoke session cleanup failed with HTTP ${cleanup.status}.`);
+    }
+  } catch (cleanupError) {
+    failure = failure
+      ? new AggregateError([failure, cleanupError], 'Smoke test and cleanup failed.')
+      : cleanupError;
+  }
 }
 
-await fetch(`${baseUrl}/api/chat?id=${chatId}`, {
-  method: 'DELETE',
-  signal: AbortSignal.timeout(30_000),
-});
-
+if (failure) throw failure;
 console.log('HarnessAgent CPA multi-turn smoke passed.');

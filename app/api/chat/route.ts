@@ -1,11 +1,13 @@
 import { getHarnessErrorMessage } from '@ai-sdk/harness/agent';
 import {
+  consumeStream,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
   toUIMessageStream,
   type UIMessage,
 } from 'ai';
+import { createHash } from 'node:crypto';
 import { getAgent } from './agent';
 import {
   clearStoredSession,
@@ -23,6 +25,21 @@ type ChatBody = {
   id?: string;
   messages?: UIMessage[];
 };
+
+function ownedChatId(request: Request, clientChatId: string) {
+  const tailnetLogin = request.headers.get('tailscale-user-login');
+  const hostname = new URL(request.url).hostname;
+  const owner = tailnetLogin
+    ? `tailnet:${tailnetLogin}`
+    : hostname === '127.0.0.1' || hostname === 'localhost'
+      ? 'loopback-operator'
+      : undefined;
+
+  if (!owner) return undefined;
+  return createHash('sha256')
+    .update(`${owner}\0${clientChatId}`)
+    .digest('hex');
+}
 
 function textFromMessage(message: UIMessage) {
   return message.parts
@@ -60,7 +77,11 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid chat request.' }, { status: 400 });
   }
 
-  const chatId = body.id;
+  const chatId = ownedChatId(request, body.id);
+  if (!chatId) {
+    return Response.json({ error: 'Tailnet identity required.' }, { status: 401 });
+  }
+
   const uiMessages = body.messages;
   const modelMessages = await convertToModelMessages(uiMessages);
 
@@ -76,8 +97,16 @@ export async function POST(request: Request) {
         try {
           const result = await agent.stream(
             !resumed && uiMessages.length > 1
-              ? { session, prompt: recoveryPrompt(uiMessages) }
-              : { session, messages: modelMessages },
+              ? {
+                  session,
+                  prompt: recoveryPrompt(uiMessages),
+                  abortSignal: request.signal,
+                }
+              : {
+                  session,
+                  messages: modelMessages,
+                  abortSignal: request.signal,
+                },
           );
 
           writer.merge(
@@ -97,13 +126,19 @@ export async function POST(request: Request) {
       },
       onError: getHarnessErrorMessage,
     }),
+    consumeSseStream: consumeStream,
   });
 }
 
 export async function DELETE(request: Request) {
-  const chatId = new URL(request.url).searchParams.get('id');
-  if (!chatId || !CHAT_ID.test(chatId)) {
+  const clientChatId = new URL(request.url).searchParams.get('id');
+  if (!clientChatId || !CHAT_ID.test(clientChatId)) {
     return Response.json({ error: 'Invalid chat id.' }, { status: 400 });
+  }
+
+  const chatId = ownedChatId(request, clientChatId);
+  if (!chatId) {
+    return Response.json({ error: 'Tailnet identity required.' }, { status: 401 });
   }
 
   try {
