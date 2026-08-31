@@ -50,13 +50,13 @@ Sandbox、仓库、Shell、文件
 
 ## 本项目的可切换 Harness
 
-聊天页可点击切换全部 9 个官方 adapter。仓库固定安装对应 9 个 package，并额外安装通用 `@ai-sdk/harness-acp` 入口。每个选项使用独立 chat id 和浏览器历史；切换不会把一个 runtime 的不透明 state 交给另一个 runtime。
+产品只安装并暴露两个通过实测的 runtime：Pi 与 Cline。筛选条件不是“存在官方 adapter”，而是同时支持 BYOK、自定义 provider endpoint、CPA `gpt-5.6-luna`、`effort=max` 和 `X-Claudex-Speed: fast`。每个选项使用独立 chat id 和浏览器历史；切换不会把一个 runtime 的不透明 state 交给另一个 runtime。
 
-当前 Mac mini 部署只启用 Pi 与 Cline。两者是 host-process runtime，可把文件与 Shell 操作限制到 `just-bash` sandbox，并直接使用同一个 CPA `gpt-5.6-luna`、`effort=max` 和 `X-Claudex-Speed: fast`。Pi 通过临时 `models.json` 连接 CPA；Cline 通过官方 OpenAI Responses provider 配置 `providerId: openai-native`、`baseUrl`、`apiKey` 和 `headers`。凭据只在 server process 解析。
+两者均为 host-process runtime，可把文件与 Shell 操作限制到 `just-bash` sandbox。Pi 通过隔离的临时 `models.json` 连接 CPA；Cline 通过官方 OpenAI Responses provider 配置 `providerId: openai-native`、`baseUrl`、`apiKey` 和 `headers`。凭据只在 server process 解析。
 
-其余 7 个 adapter 已安装并可点击查看，但不会伪装成可运行：Claude Code、Codex、Deep Agents、OpenCode 和三个 ACP runtime（Cursor、fx、Grok Build）都要求能暴露端口的 network sandbox；部分还要求 runtime 自有账号凭据。当前唯一官方支持的 bridge sandbox 是 Vercel Sandbox，而本项目禁止索取 `VERCEL_OIDC_TOKEN`、禁止改走 AI Gateway，也不公开 macmini CPA。因此这些选项保持 `gated`，API 对绕过 UI 的请求返回 HTTP 422。未来只有在官方、可验证的 network sandbox 和对应 direct CPA 路由同时满足后才能启用。
+其余官方 adapter 只保留在研究 catalog，不安装、不出现在产品切换器，也不接受 API 请求。原因包括：只支持 AI Gateway、endpoint 由 runtime 账号设置控制、缺少直接 CPA 实证，或需要当前部署没有的 network sandbox。不能把“理论上可配置”写成“已支持”。
 
-当前 Cline adapter 和安装完整 catalog 会引入较大的多 provider 依赖树。发布前必须保留 lockfile、运行 `npm audit`，并把未修复 advisory 作为已知风险处理；不能为了消除报告而执行破坏性 `npm audit fix --force`。
+Cline adapter 本身仍会引入较大的多 provider 依赖树。发布前必须保留 lockfile、运行 `npm audit`，并把未修复 advisory 作为已知风险处理；不能为了消除报告而执行破坏性 `npm audit fix --force`。
 
 ## 当前 adapters
 
@@ -86,34 +86,37 @@ Sandbox、仓库、Shell、文件
 
 ## 安装
 
-以 Claude Code 为例：
+当前产品依赖：
 
 ```bash
-pnpm add \
+npm install \
   @ai-sdk/harness \
-  @ai-sdk/harness-claude-code \
-  @ai-sdk/sandbox-vercel
+  @ai-sdk/harness-pi \
+  @ai-sdk/harness-cline \
+  @ai-sdk/sandbox-just-bash
 ```
 
-Bridge-backed runtime 需要 sandbox 网络访问和至少一个暴露的 TCP 端口。Claude Code、Codex、Deep Agents、OpenCode，以及通过 ACP 运行的 Cursor、fx、Grok Build 都属于这类。
-
-Pi、Cline 这类 host process runtime 不在 sandbox 内安装 bridge。Pi 还可使用 `@ai-sdk/sandbox-just-bash`，因为它不需要 sandbox 端口。
+Pi、Cline 这类 host process runtime 不在 sandbox 内安装 bridge。两者均可使用当前 `just-bash` provider，不需要暴露 bridge 端口。
 
 ## 最小示例
 
 ```ts
 import { HarnessAgent } from '@ai-sdk/harness/agent';
-import { claudeCode } from '@ai-sdk/harness-claude-code';
-import { createVercelSandbox } from '@ai-sdk/sandbox-vercel';
+import { createCline } from '@ai-sdk/harness-cline';
+import { createJustBashSandbox } from '@ai-sdk/sandbox-just-bash';
 
 export const agent = new HarnessAgent({
-  harness: claudeCode,
-  sandbox: createVercelSandbox({
-    runtime: 'node24',
-    ports: [4000],
+  model: 'gpt-5.6-luna',
+  harness: createCline({
+    auth: {},
+    providerId: 'openai-native',
+    apiKey: process.env.CPA_API_KEY,
+    baseUrl: process.env.CPA_BASE_URL,
+    headers: { 'X-Claudex-Speed': 'fast' },
+    reasoningEffort: 'max',
   }),
-  instructions:
-    'Make small changes, preserve public APIs, and run relevant tests.',
+  sandbox: createJustBashSandbox({ cwd: '/workspace' }),
+  instructions: 'Answer directly and keep evidence boundaries explicit.',
 });
 ```
 

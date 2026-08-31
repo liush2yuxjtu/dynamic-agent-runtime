@@ -14,21 +14,9 @@ const execFileAsync = promisify(execFile);
 const CPA_MODEL = 'gpt-5.6-luna';
 const DEFAULT_CPA_BASE_URL = 'http://127.0.0.1:8318/v1';
 
-export const HARNESS_IDS = [
-  'claude-code',
-  'cline',
-  'codex',
-  'cursor',
-  'deepagents',
-  'fx',
-  'grok-build',
-  'opencode',
-  'pi',
-] as const;
+export const HARNESS_IDS = ['pi', 'cline'] as const;
 export type HarnessId = (typeof HARNESS_IDS)[number];
-
-export const ACTIVE_HARNESS_IDS = ['pi', 'cline'] as const satisfies readonly HarnessId[];
-export type ActiveHarnessId = (typeof ACTIVE_HARNESS_IDS)[number];
+export type ActiveHarnessId = HarnessId;
 
 const agentPromises = new Map<ActiveHarnessId, Promise<HarnessAgent>>();
 
@@ -189,10 +177,6 @@ async function createAgent(harnessId: ActiveHarnessId) {
 
 export function isHarnessId(value: unknown): value is HarnessId {
   return HARNESS_IDS.includes(value as HarnessId);
-}
-
-export function isActiveHarnessId(value: HarnessId): value is ActiveHarnessId {
-  return ACTIVE_HARNESS_IDS.includes(value as ActiveHarnessId);
 }
 
 export function getAgent(harnessId: ActiveHarnessId) {
