@@ -35,6 +35,7 @@ https://macmini.tail6a877d.ts.net:3012
 ## 文档
 
 - [Coding Agent SDK 全景](docs/coding-agent-sdk-landscape.md)
+- [后端 Agent Runtime 全量清单](docs/backend-agent-runtimes.md)
 - [Vercel AI SDK HarnessAgent 指南](docs/vercel-harness-agent.md)
 - [本体与专家进化](docs/ontology-evolution.md)
 - [Mac mini 部署与恢复](docs/deployment.md)

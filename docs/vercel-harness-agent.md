@@ -58,6 +58,8 @@ Sandbox、仓库、Shell、文件
 
 ## 当前 adapters
 
+完整选型、采用度、CPA 兼容性和推荐顺序见 [后端 Agent Runtime 全量清单](backend-agent-runtimes.md)。
+
 官方当前提供九个 adapter：
 
 | Runtime | Package | 运行位置 | Structured output | 内置工具审批 | 内置工具过滤 |
