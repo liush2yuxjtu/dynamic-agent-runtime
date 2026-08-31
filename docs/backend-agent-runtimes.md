@@ -22,7 +22,7 @@
 | [OpenCode](https://ai-sdk.dev/providers/ai-sdk-harnesses/opencode) | `@ai-sdk/harness-opencode` | 1.0.96 | Sandbox bridge | 支持 | 支持 / 自动拒绝 | 支持 OpenAI-compatible provider；适合 CPA | 未安装 |
 | [Pi](https://ai-sdk.dev/providers/ai-sdk-harnesses/pi) | `@ai-sdk/harness-pi` | 1.0.96 | Host process | 不支持 | 支持 / 支持 | **已通过 CPA 实测** | 已安装 |
 
-另有通用 [`@ai-sdk/harness-acp`](https://ai-sdk.dev/providers/ai-sdk-harnesses/acp) 1.0.32，可连接任何符合 ACP v1 的 runtime。官方文档给出完整 profile 的实现包括 Claude Code、Codex、Cursor 和 Grok Build。
+另有通用 [`@ai-sdk/harness-acp`](https://ai-sdk.dev/providers/ai-sdk-harnesses/acp) 1.0.32，可连接能够在 Harness sandbox 内安装、启动并通过所需暴露端口通信的 ACP v1 runtime。官方文档给出完整 profile 的实现包括 Claude Code、Codex、Cursor 和 Grok Build。
 
 ## 运行架构差异
 
@@ -99,7 +99,7 @@ Claude Code、Codex、OpenCode、Deep Agents，以及 Cursor、fx、Grok Build �
 2. Harness adapter 统一 API，不会自动统一底层权限能力；每个 adapter 必须单独验证 approval、tool filtering、resume 和 structured output。
 3. Bridge-backed runtime 必须使用 network sandbox，不能为了省事直接在 Mac mini production host 上裸跑 bridge。
 4. CPA credential 只允许在 server process 解析；不能写入 Git、浏览器、sandbox workspace 或日志。
-5. Cline 官方 adapter 当前引入较大的多-provider 依赖树。当前审计仍有 13 个 moderate、1 个 high advisory；服务保持 tailnet 私有，不执行破坏性的 `npm audit fix --force`。
+5. Cline 官方 adapter 引入较大的多-provider 依赖树。本地观察：2026-08-31 针对锁定的 `@ai-sdk/harness-cline@1.0.21` production dependency tree 运行 `npm audit --omit=dev --audit-level=high`，结果为 13 个 moderate、1 个 high。High 来自 `dify-ai-provider` 嵌套的 `undici<=6.27.0`，相关条目包括 `GHSA-vrm6-8vpv-qv8q`、`GHSA-v9p9-hfj2-hcw8`、`GHSA-vxpw-j846-p89q`；moderate 包括 `GHSA-8988-4f7v-96qf` 和 `GHSA-866g-f22w-33x8`。服务保持 tailnet 私有，不执行破坏性的 `npm audit fix --force`。
 6. **NEVER deploy this application on the MacBook.** 所有持久服务、bridge 和未来 network sandbox 都只能运行在 `macmini.tail6a877d.ts.net`。
 
 ## 官方来源
