@@ -3,7 +3,8 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Luna Harness Chat',
-  description: 'HarnessAgent chatbot powered by Pi and GPT-5.6 Luna through CPA.',
+  description:
+    'Switchable Pi and Cline HarnessAgent chatbot powered by GPT-5.6 Luna through CPA.',
 };
 
 export const viewport: Viewport = {

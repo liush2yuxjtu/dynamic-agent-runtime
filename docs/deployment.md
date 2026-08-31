@@ -19,7 +19,7 @@ MacBook browser
   -> encrypted Tailscale connection
   -> Tailscale Serve HTTPS :3012 on macmini
   -> Next.js 127.0.0.1:4312
-  -> HarnessAgent + Pi + just-bash sandbox
+  -> HarnessAgent + selectable Pi/Cline + just-bash sandbox
   -> macmini CPA 127.0.0.1:8317/v1
 ```
 
@@ -46,7 +46,7 @@ Pi owns these steps; the user need not remember commands:
 1. Verify local and remote Tailscale identity and `tailscale ping macmini`.
 2. Verify GitHub source is public and merged on `main`.
 3. Clone or fast-forward `~/Applications/dynamic-agent-runtime` on macmini.
-4. Run `./scripts/deploy-macmini` remotely.
+4. Run `./scripts/deploy-macmini` remotely. Its smoke gate tests both Pi and Cline against CPA.
 5. Verify LaunchAgent, loopback health, Tailscale Serve status, and the tailnet HTTPS URL from the MacBook.
 6. Open the tailnet URL only from the MacBook; do not start a MacBook copy.
 

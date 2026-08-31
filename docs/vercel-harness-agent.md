@@ -48,6 +48,14 @@ Sandbox、仓库、Shell、文件
 
 简单业务 agent 使用 `ToolLoopAgent`。需要真实工程行为时再使用 `HarnessAgent`。
 
+## 本项目的可切换 Harness
+
+聊天页支持点击切换 Pi 与 Cline。两者都由 Vercel 官方 adapter 提供，运行在 Mac mini host process，并把文件与 Shell 操作限制到独立 `just-bash` sandbox。每个 Harness 使用独立 chat id、浏览器历史和原生 session，切换不会把一个 runtime 的不透明 state 交给另一个 runtime。
+
+两条路径都使用同一个 CPA `gpt-5.6-luna`，`effort=max`，并发送 `X-Claudex-Speed: fast`。Pi 通过临时 `models.json` 连接 CPA；Cline 通过官方 custom-provider 配置 `providerId: openai-compatible`、`baseUrl`、`apiKey` 和 `headers` 连接 CPA endpoint。凭据只在 server process 解析。
+
+当前 Cline adapter 会引入较大的多 provider 依赖树。发布前必须保留 lockfile、运行 `npm audit`，并把未修复 advisory 作为已知风险处理；不能为了消除报告而执行破坏性 `npm audit fix --force`。
+
 ## 当前 adapters
 
 官方当前提供九个 adapter：
@@ -448,6 +456,10 @@ Durable Workflow 可使用 `@ai-sdk/workflow-harness`。跨 workflow run 仍要�
 - 需要统一多 runtime：使用 HarnessAgent。
 - 自己设计 agent loop：使用 ToolLoopAgent。
 - 需要模型级统一路由：使用 AI Gateway。AI Gateway 和 HarnessAgent 解决不同问题。
+
+## 本体与专家进化
+
+Pi 与 Cline 都加载同一个 `ontology-evolution` Harness skill。它把高频主动 schema 更新转换成 semantic diff、影响图、兼容性测试、canary 和下游 acknowledgement；把被动 feedback 转成带 provenance 的候选变更、独立 ontology / expert eval 和 promotion gates。完整合同见 [本体与专家进化](ontology-evolution.md)。
 
 ## 官方来源
 
