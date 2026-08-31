@@ -20,12 +20,15 @@ MacBook browser
   -> Tailscale Serve HTTPS :3012 on macmini
   -> Next.js 127.0.0.1:4312
   -> HarnessAgent + Pi/Cline switcher
-     -> BYOK + custom endpoint + just-bash sandbox
-     -> unsupported or unverified adapters not installed
+     -> Vercel Sandbox when configured
+     -> E2B when configured and Vercel provisioning is unavailable
+     -> just-bash for current host-driven runtimes
   -> macmini CPA 127.0.0.1:8317/v1
 ```
 
 Tailscale Serve is tailnet-private. Do not replace it with Funnel. The API derives each session-store key from Tailscale's authenticated `Tailscale-User-Login` header; direct requests are accepted only from loopback for operator smoke tests. This app reaches CPA through `127.0.0.1` and does not publish CPA through Tailscale Serve. Its API key is resolved by the existing mode-protected helper; no credential belongs in Git.
+
+Cloud sandbox selection happens before a Harness session starts. Vercel and E2B use official AI SDK sandbox providers. Provisioning can fall through to the next configured provider, but a running session never switches provider or replays work. See [Cloud sandbox fallback](cloud-sandbox-fallback.md).
 
 ## Persistent service
 
@@ -48,9 +51,10 @@ Pi owns these steps; the user need not remember commands:
 1. Verify local and remote Tailscale identity and `tailscale ping macmini`.
 2. Verify GitHub source is public and merged on `main`.
 3. Clone or fast-forward `~/Applications/dynamic-agent-runtime` on macmini.
-4. Run `./scripts/deploy-macmini` remotely. Its smoke gate tests both selected runtimes, Pi and Cline, against CPA. Runtime catalog entries without verified BYOK and custom endpoint support are not installed or exposed in the product.
-5. Verify LaunchAgent, loopback health, Tailscale Serve status, and the tailnet HTTPS URL from the MacBook.
-6. Open the tailnet URL only from the MacBook; do not start a MacBook copy.
+4. Verify configured cloud providers with `npm run smoke:sandboxes`.
+5. Run `./scripts/deploy-macmini` remotely. Its smoke gate tests both selected runtimes, Pi and Cline, against CPA. Runtime catalog entries without verified BYOK and custom endpoint support are not installed or exposed in the product.
+6. Verify LaunchAgent, loopback health, Tailscale Serve status, and the tailnet HTTPS URL from the MacBook.
+7. Open the tailnet URL only from the MacBook; do not start a MacBook copy.
 
 ## Recovery
 

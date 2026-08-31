@@ -42,7 +42,13 @@ fi
 cd "$RELEASE_DIR"
 "$NPM_BIN" ci
 "$NPM_BIN" run typecheck
+"$NPM_BIN" test
 "$NPM_BIN" run build
+VERCEL_TEAM_ID="team_1VUYYia3RReNLUn2r8ciX2Nb" \
+VERCEL_PROJECT_ID="prj_paj35AFwuOFngh4dK9fVOvn4kKWh" \
+REQUIRE_SANDBOXES="vercel" \
+  "$RELEASE_DIR/scripts/with-cloud-sandbox-credentials" \
+  "$NPM_BIN" run smoke:sandboxes
 
 NEW_PLIST="$STATE_DIR/$LABEL.$COMMIT.plist"
 python3 - "$NEW_PLIST" "$LABEL" "$RELEASE_DIR" "$STATE_DIR/app.log" "$NPM_BIN" "$APP_PORT" <<'PY'
@@ -55,6 +61,8 @@ data = {
     'EnvironmentVariables': {
         'PATH': '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin',
         'CPA_BASE_URL': 'http://127.0.0.1:8317/v1',
+        'VERCEL_TEAM_ID': 'team_1VUYYia3RReNLUn2r8ciX2Nb',
+        'VERCEL_PROJECT_ID': 'prj_paj35AFwuOFngh4dK9fVOvn4kKWh',
         'NODE_ENV': 'production',
     },
     'RunAtLoad': True,
