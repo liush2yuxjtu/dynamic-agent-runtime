@@ -1,0 +1,73 @@
+#!/bin/sh
+set -eu
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+APP_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+LABEL="com.liushiyu.dynamic-agent-runtime"
+STATE_DIR="$HOME/.local/state/dynamic-agent-runtime"
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+APP_PORT=4312
+TAILNET_PORT=3012
+TAILNET_URL="https://macmini.tail6a877d.ts.net:$TAILNET_PORT"
+TAILSCALE_BIN="${TAILSCALE_BIN:-$(command -v tailscale)}"
+NPM_BIN="$(command -v npm)"
+
+"$SCRIPT_DIR/assert-macmini"
+
+FREE_KIB="$(df -k / | awk 'NR==2 {print $4}')"
+if [ "$FREE_KIB" -lt 10485760 ]; then
+  printf '%s\n' 'Refusing deployment: macmini has less than 10 GiB free.' >&2
+  exit 65
+fi
+
+cd "$APP_DIR"
+npm ci
+npm run typecheck
+npm run build
+
+mkdir -p "$STATE_DIR" "$HOME/Library/LaunchAgents"
+python3 - "$PLIST" "$LABEL" "$APP_DIR" "$STATE_DIR/app.log" "$NPM_BIN" "$APP_PORT" <<'PY'
+import plistlib, sys
+plist, label, app_dir, log, npm, port = sys.argv[1:]
+data = {
+    'Label': label,
+    'ProgramArguments': [npm, 'start', '--', '--hostname', '127.0.0.1', '--port', port],
+    'WorkingDirectory': app_dir,
+    'EnvironmentVariables': {
+        'PATH': '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin',
+        'CPA_BASE_URL': 'http://127.0.0.1:8317/v1',
+        'NODE_ENV': 'production',
+    },
+    'RunAtLoad': True,
+    'KeepAlive': True,
+    'ProcessType': 'Interactive',
+    'StandardOutPath': log,
+    'StandardErrorPath': log,
+}
+with open(plist, 'wb') as f:
+    plistlib.dump(data, f, sort_keys=False)
+PY
+plutil -lint "$PLIST" >/dev/null
+
+DOMAIN="gui/$(id -u)"
+launchctl bootout "$DOMAIN/$LABEL" >/dev/null 2>&1 || true
+if lsof -nP -iTCP:"$APP_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  printf 'Refusing deployment: port %s is owned by another process.\n' "$APP_PORT" >&2
+  exit 66
+fi
+launchctl bootstrap "$DOMAIN" "$PLIST"
+launchctl enable "$DOMAIN/$LABEL"
+launchctl kickstart -k "$DOMAIN/$LABEL"
+
+for _ in $(seq 1 90); do
+  if curl -fsS "http://127.0.0.1:$APP_PORT" | grep -q 'Luna Harness Chat'; then
+    break
+  fi
+  sleep 1
+done
+curl -fsS "http://127.0.0.1:$APP_PORT" | grep -q 'Luna Harness Chat'
+
+"$TAILSCALE_BIN" serve --bg --yes --https="$TAILNET_PORT" "http://127.0.0.1:$APP_PORT"
+curl -fsS "$TAILNET_URL" | grep -q 'Luna Harness Chat'
+
+printf 'Deployed: %s\n' "$TAILNET_URL"

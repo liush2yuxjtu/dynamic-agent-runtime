@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+TAILSCALE_BIN="${TAILSCALE_BIN:-$(command -v tailscale 2>/dev/null || true)}"
+if [ -z "$TAILSCALE_BIN" ]; then
+  printf '%s\n' 'Refusing deployment: Tailscale CLI is unavailable.' >&2
+  exit 64
+fi
+
+DNS_NAME="$($TAILSCALE_BIN status --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Self", {}).get("DNSName", "").rstrip("."))')"
+if [ "$DNS_NAME" != "macmini.tail6a877d.ts.net" ]; then
+  printf 'Refusing deployment on %s (%s). Only macmini.tail6a877d.ts.net is allowed.\n' "$(hostname)" "${DNS_NAME:-no-tailnet-identity}" >&2
+  exit 64
+fi

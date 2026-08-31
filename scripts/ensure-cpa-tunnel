@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+if nc -z 127.0.0.1 8318 >/dev/null 2>&1; then
+  exit 0
+fi
+
+ssh -fN \
+  -o BatchMode=yes \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  -L 127.0.0.1:8318:127.0.0.1:8317 \
+  macmini
