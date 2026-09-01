@@ -59,19 +59,22 @@ async function probe(providerId) {
         port: 4000,
         protocol: 'http',
       });
-      let responseText = '';
+      let portProbeSucceeded = false;
       for (let attempt = 0; attempt < 20; attempt++) {
         try {
           const response = await fetch(endpoint.url, {
             headers: endpoint.headers,
             signal: AbortSignal.timeout(5_000),
           });
-          responseText = await response.text();
-          if (response.ok && responseText === 'PORT_OK') break;
+          const responseText = await response.text();
+          if (response.ok && responseText === 'PORT_OK') {
+            portProbeSucceeded = true;
+            break;
+          }
         } catch {}
         await new Promise(resolve => setTimeout(resolve, 500));
       }
-      if (responseText !== 'PORT_OK') {
+      if (!portProbeSucceeded) {
         throw new Error(`${providerId} port probe failed.`);
       }
     } finally {
