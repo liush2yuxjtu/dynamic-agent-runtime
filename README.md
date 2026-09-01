@@ -12,6 +12,7 @@ App 使用 `HarnessAgent` + Pi adapter + `just-bash` 隔离 sandbox，通过 CPA
 - Credential：只在服务端解析，不写入 Git 或浏览器
 - Source：公开 GitHub 仓库
 - Harness：页面只提供 Pi / Cline 点击切换；两者均已实测支持 BYOK、自定义 endpoint 和 CPA
+- Sandbox：Vercel → E2B → `just-bash` 有界 fallback；会话开始后不切换 provider
 - Evolution：主动 schema 更新与被动 feedback 迭代 playbook
 - Runtime：仅部署在 `macmini`
 - Access：通过 Tailscale Serve 从本机私密访问
@@ -38,6 +39,7 @@ https://macmini.tail6a877d.ts.net:3012
 - [后端 Agent Runtime 全量清单](docs/backend-agent-runtimes.md)
 - [Vercel AI SDK HarnessAgent 指南（官方 catalog + BYOK 筛选）](docs/vercel-harness-agent.md)
 - [本体与专家进化](docs/ontology-evolution.md)
+- [Cloud sandbox fallback](docs/cloud-sandbox-fallback.md)
 - [Mac mini 部署与恢复](docs/deployment.md)
 
 ## 收录原则

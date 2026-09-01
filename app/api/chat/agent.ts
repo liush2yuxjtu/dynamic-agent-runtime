@@ -3,12 +3,12 @@ import 'server-only';
 import { HarnessAgent } from '@ai-sdk/harness/agent';
 import { createCline } from '@ai-sdk/harness-cline';
 import { createPi } from '@ai-sdk/harness-pi';
-import { createJustBashSandbox } from '@ai-sdk/sandbox-just-bash';
 import { execFile } from 'node:child_process';
 import { access, constants, mkdir, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { createFallbackSandboxProvider } from './sandbox-registry';
 
 const execFileAsync = promisify(execFile);
 const CPA_MODEL = 'gpt-5.6-luna';
@@ -111,7 +111,7 @@ async function preparePiAgentDir(baseUrl: string) {
           providers: {
             openai: {
               baseUrl,
-              apiKey: '$HARNESS_CPA_API_KEY',
+              apiKey: '$OPENAI_API_KEY',
               headers: { 'X-Claudex-Speed': 'fast' },
             },
           },
@@ -128,7 +128,7 @@ async function preparePiAgentDir(baseUrl: string) {
 
 async function createAgent(harnessId: ActiveHarnessId) {
   const cpa = await resolveCpa();
-  const sandbox = createJustBashSandbox({ cwd: '/workspace' });
+  const sandbox = await createFallbackSandboxProvider();
   const instructions = [
     'You are Luna, a precise and warm general-purpose assistant.',
     'Reply in the language used by the user.',
@@ -157,14 +157,16 @@ async function createAgent(harnessId: ActiveHarnessId) {
     });
   }
 
-  // Pi resolves this only in the host process. It is never copied into the sandbox.
-  process.env.HARNESS_CPA_API_KEY = cpa.apiKey;
   const agentDir = await preparePiAgentDir(cpa.baseUrl);
 
   return new HarnessAgent({
     id: 'luna-pi-harness-chat',
     model: `openai/${CPA_MODEL}`,
     harness: createPi({
+      auth: {
+        OPENAI_API_KEY: cpa.apiKey,
+        OPENAI_BASE_URL: cpa.baseUrl,
+      },
       agentDir,
       thinkingLevel: 'max',
     }),

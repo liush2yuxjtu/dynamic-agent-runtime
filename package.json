@@ -12,7 +12,9 @@
     "build": "next build",
     "start": "./scripts/start-macmini",
     "typecheck": "tsc --noEmit",
-    "smoke": "node scripts/smoke-chat.mjs"
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types app/api/chat/sandbox-registry.test.ts",
+    "smoke": "node scripts/smoke-chat.mjs",
+    "smoke:sandboxes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/smoke-sandboxes.mjs"
   },
   "dependencies": {
     "@ai-sdk/harness": "1.0.94",
@@ -20,6 +22,8 @@
     "@ai-sdk/harness-pi": "1.0.96",
     "@ai-sdk/react": "4.0.88",
     "@ai-sdk/sandbox-just-bash": "1.0.94",
+    "@ai-sdk/sandbox-vercel": "1.0.94",
+    "@e2b/ai-sdk-sandbox": "0.3.0",
     "ai": "7.0.85",
     "next": "16.3.3",
     "react": "19.2.8",

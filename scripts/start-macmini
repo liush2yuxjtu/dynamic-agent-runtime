@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
-"$(dirname "$0")/assert-macmini"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+"$SCRIPT_DIR/assert-macmini"
 export CPA_BASE_URL="${CPA_BASE_URL:-http://127.0.0.1:8317/v1}"
-exec "$(dirname "$0")/../node_modules/.bin/next" start "$@"
+exec "$SCRIPT_DIR/with-cloud-sandbox-credentials" \
+  "$SCRIPT_DIR/../node_modules/.bin/next" start "$@"
