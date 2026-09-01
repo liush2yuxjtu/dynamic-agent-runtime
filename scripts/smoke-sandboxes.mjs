@@ -67,10 +67,9 @@ async function probe(providerId) {
             signal: AbortSignal.timeout(5_000),
           });
           responseText = await response.text();
-          if (responseText === 'PORT_OK') break;
-        } catch {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
+          if (response.ok && responseText === 'PORT_OK') break;
+        } catch {}
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       if (responseText !== 'PORT_OK') {
         throw new Error(`${providerId} port probe failed.`);

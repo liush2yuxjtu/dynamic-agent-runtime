@@ -78,7 +78,7 @@ The tests prove credential skipping, ordered selection, retryable provisioning f
 
 ## Free-tier limits
 
-- Vercel Hobby resets monthly. It allows 10 concurrent sandboxes and a 45-minute maximum session.
+- Vercel Hobby resets monthly. It allows 10 concurrent sandboxes and a 45-minute provider maximum. This application configures a 30-minute timeout, which stops the sandbox. Explicit session cleanup can destroy it sooner.
 - E2B Hobby provides a one-time USD 100 credit. It allows 20 concurrent sandboxes and a one-hour maximum session.
 - Modal Starter provides monthly credits, but this project does not enable Modal without an approved provider and a live contract test.
 - CodeSandbox Free provides monthly VM credits, but this project does not enable CodeSandbox without an approved provider and a live contract test.

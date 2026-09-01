@@ -216,6 +216,38 @@ describe('sandbox fallback registry', () => {
     assert.equal((await sandbox.createSession()).id, 'e2b');
   });
 
+  test('does not fall back after bootstrap completes', async () => {
+    const outage = Object.assign(new Error('Service unavailable.'), {
+      response: { status: 503 },
+    });
+    let e2bCreated = false;
+    const sandbox = await createFallbackSandboxProvider(
+      { ...explicitVercelEnv, E2B_API_KEY: 'e2b-secret' },
+      factories({
+        vercel: () => ({
+          specificationVersion: 'harness-sandbox-v1',
+          providerId: 'vercel',
+          async createSession(options) {
+            await options?.onFirstCreate?.(session('bootstrap'), {});
+            throw outage;
+          },
+        }),
+        e2b: () => {
+          e2bCreated = true;
+          return provider('e2b', () => session('e2b'));
+        },
+      }),
+    );
+
+    await assert.rejects(Promise.resolve(sandbox.createSession({
+      onFirstCreate: async () => undefined,
+    })), error => {
+      assert.equal(error, outage);
+      return true;
+    });
+    assert.equal(e2bCreated, false);
+  });
+
   test('does not fall back on authentication or configuration failure', async () => {
     const authenticationError = Object.assign(new Error('Unauthorized.'), {
       name: 'AuthenticationError',

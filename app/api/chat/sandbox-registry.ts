@@ -219,7 +219,10 @@ function isRetryableProvisioningFailure(error: unknown) {
   return false;
 }
 
-function protectBootstrap(options: CreateSessionOptions): CreateSessionOptions {
+function protectBootstrap(
+  options: CreateSessionOptions,
+  onComplete: () => void,
+): CreateSessionOptions {
   if (!options?.onFirstCreate) return options;
   const onFirstCreate = options.onFirstCreate;
   return {
@@ -227,8 +230,8 @@ function protectBootstrap(options: CreateSessionOptions): CreateSessionOptions {
     async onFirstCreate(session, callbackOptions) {
       try {
         await onFirstCreate(session, callbackOptions);
+        onComplete();
       } catch (error) {
-        // Bootstrap may already have side effects, so another backend is unsafe.
         throw new SandboxBootstrapError(error);
       }
     },
@@ -240,11 +243,16 @@ async function createCloudSession(
   provider: HarnessV1SandboxProvider,
   options: CreateSessionOptions,
 ) {
+  let bootstrapCompleted = false;
   try {
-    return await provider.createSession(protectBootstrap(options));
+    return await provider.createSession(
+      protectBootstrap(options, () => {
+        bootstrapCompleted = true;
+      }),
+    );
   } catch (error) {
     if (error instanceof SandboxBootstrapError) throw error;
-    if (options?.abortSignal?.aborted) throw error;
+    if (bootstrapCompleted || options?.abortSignal?.aborted) throw error;
     if (error instanceof SandboxProvisioningError) throw error;
     if (!isRetryableProvisioningFailure(error)) throw error;
     throw new SandboxProvisioningError(
