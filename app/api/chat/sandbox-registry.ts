@@ -42,15 +42,6 @@ export class SandboxProvisioningError extends Error {
   readonly retryable = true;
 }
 
-class SandboxBootstrapError extends Error {
-  readonly original: unknown;
-
-  constructor(original: unknown) {
-    super('Sandbox bootstrap failed.');
-    this.original = original;
-  }
-}
-
 const defaultFactories: SandboxProviderFactories = {
   async vercel(credential) {
     const { createVercelSandbox } = await import('@ai-sdk/sandbox-vercel');
@@ -219,46 +210,44 @@ function isRetryableProvisioningFailure(error: unknown) {
   return false;
 }
 
-function protectBootstrap(
-  options: CreateSessionOptions,
-  onComplete: () => void,
-): CreateSessionOptions {
-  if (!options?.onFirstCreate) return options;
-  const onFirstCreate = options.onFirstCreate;
-  return {
-    ...options,
-    async onFirstCreate(session, callbackOptions) {
-      try {
-        await onFirstCreate(session, callbackOptions);
-        onComplete();
-      } catch (error) {
-        throw new SandboxBootstrapError(error);
-      }
-    },
-  };
-}
-
 async function createCloudSession(
   id: 'vercel' | 'e2b',
   provider: HarnessV1SandboxProvider,
   options: CreateSessionOptions,
 ) {
-  let bootstrapCompleted = false;
+  const onFirstCreate = options?.onFirstCreate;
+  const createOptions = onFirstCreate
+    ? { ...options, identity: undefined, onFirstCreate: undefined }
+    : options;
+  let session;
   try {
-    return await provider.createSession(
-      protectBootstrap(options, () => {
-        bootstrapCompleted = true;
-      }),
-    );
+    session = await provider.createSession(createOptions);
   } catch (error) {
-    if (error instanceof SandboxBootstrapError) throw error;
-    if (bootstrapCompleted || options?.abortSignal?.aborted) throw error;
+    if (options?.abortSignal?.aborted) throw error;
     if (error instanceof SandboxProvisioningError) throw error;
     if (!isRetryableProvisioningFailure(error)) throw error;
     throw new SandboxProvisioningError(
       `${id} sandbox provisioning is temporarily unavailable.`,
       { cause: error },
     );
+  }
+
+  if (!onFirstCreate) return session;
+  try {
+    await onFirstCreate(session.restricted(), {
+      abortSignal: options?.abortSignal,
+    });
+    return session;
+  } catch (error) {
+    try {
+      await session.destroy();
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        `${id} sandbox bootstrap and cleanup failed.`,
+      );
+    }
+    throw error;
   }
 }
 
@@ -313,7 +302,6 @@ export async function createFallbackSandboxProvider({
           }
           return await createCloudSession(candidate.id, provider, options);
         } catch (error) {
-          if (error instanceof SandboxBootstrapError) throw error.original;
           if (!(error instanceof SandboxProvisioningError)) throw error;
           lastProvisioningError = error;
         }

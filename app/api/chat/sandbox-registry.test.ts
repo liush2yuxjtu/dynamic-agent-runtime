@@ -13,6 +13,7 @@ import {
 function session(
   id: string,
   runError?: Error,
+  onDestroy?: () => void,
 ): HarnessV1NetworkSandboxSession {
   const toolSurface = {
     description: 'test sandbox',
@@ -41,7 +42,9 @@ function session(
     getPortEndpoint: async () => ({ url: 'https://sandbox.test' }),
     getPortUrl: async () => 'https://sandbox.test',
     stop: async () => undefined,
-    destroy: async () => undefined,
+    destroy: async () => {
+      onDestroy?.();
+    },
     restricted: () => toolSurface,
   };
 }
@@ -216,22 +219,19 @@ describe('sandbox fallback registry', () => {
     assert.equal((await sandbox.createSession()).id, 'e2b');
   });
 
-  test('does not fall back after bootstrap completes', async () => {
-    const outage = Object.assign(new Error('Service unavailable.'), {
-      response: { status: 503 },
-    });
+  test('destroys the selected session when bootstrap fails', async () => {
+    const bootstrapError = new Error('Bootstrap failed.');
+    let destroyed = 0;
     let e2bCreated = false;
     const sandbox = await createFallbackSandboxProvider(
       { ...explicitVercelEnv, E2B_API_KEY: 'e2b-secret' },
       factories({
-        vercel: () => ({
-          specificationVersion: 'harness-sandbox-v1',
-          providerId: 'vercel',
-          async createSession(options) {
-            await options?.onFirstCreate?.(session('bootstrap'), {});
-            throw outage;
-          },
-        }),
+        vercel: () =>
+          provider('vercel', () =>
+            session('vercel', undefined, () => {
+              destroyed++;
+            }),
+          ),
         e2b: () => {
           e2bCreated = true;
           return provider('e2b', () => session('e2b'));
@@ -239,12 +239,21 @@ describe('sandbox fallback registry', () => {
       }),
     );
 
-    await assert.rejects(Promise.resolve(sandbox.createSession({
-      onFirstCreate: async () => undefined,
-    })), error => {
-      assert.equal(error, outage);
-      return true;
-    });
+    await assert.rejects(
+      Promise.resolve(
+        sandbox.createSession({
+          identity: 'bootstrap-v1',
+          onFirstCreate: async () => {
+            throw bootstrapError;
+          },
+        }),
+      ),
+      error => {
+        assert.equal(error, bootstrapError);
+        return true;
+      },
+    );
+    assert.equal(destroyed, 1);
     assert.equal(e2bCreated, false);
   });
 

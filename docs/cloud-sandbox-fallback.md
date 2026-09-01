@@ -16,7 +16,7 @@ Each Harness session selects one sandbox before the first turn:
 
 The selected sandbox remains fixed for the session. A command, tool, stream, or file failure never replays work on another provider.
 
-Fallback occurs only when cloud provisioning fails because of a timeout, capacity issue, rate limit, network outage, or service error. Authentication errors, invalid configuration, and bootstrap errors fail closed.
+Fallback occurs only when cloud provisioning fails because of a timeout, capacity issue, rate limit, network outage, or service error. Authentication errors, invalid configuration, and bootstrap errors fail closed. The selector runs bootstrap after provisioning and destroys the selected sandbox if bootstrap fails. This safety boundary disables provider snapshot reuse for bootstrap work.
 
 Bridge-backed runtimes must disable the local fallback. `just-bash` cannot expose a bridge port.
 
